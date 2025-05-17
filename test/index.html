@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Security Breach</title>
+  <style>
+    body {
+      background-color: #000;
+      color: #0f0;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 2em;
+      animation: glitch 1s infinite;
+    }
+
+    h1, h2 {
+      text-shadow: 0 0 5px #0f0, 0 0 10px #0f0;
+    }
+
+    @keyframes glitch {
+      0% { text-shadow: 0 0 5px #0f0; }
+      50% { text-shadow: 0 0 10px #f00; }
+      100% { text-shadow: 0 0 5px #0f0; }
+    }
+
+    .warning-box {
+      border: 2px dashed #f00;
+      padding: 1em;
+      margin-top: 2em;
+      background-color: rgba(255, 0, 0, 0.1);
+    }
+
+    code {
+      background-color: #111;
+      padding: 0.2em;
+      border-radius: 4px;
+      color: #0ff;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⚠️ SYSTEM BREACH DETECTED ⚠️</h1>
+    <h2>I am a hacker. I stole your data.</h2>
+  </header>
+
+  <main>
+    <p>Your device has been <strong>compromised</strong>.</p>
+    <div class="warning-box">
+      <p><code>IP: 192.168.1.13</code></p>
+      <p><code>Location: Unknown</code></p>
+      <p><code>Status: Data exfiltrated</code></p>
+    </div>
+    <p>We own your system. Stay offline... if you can.</p>
+  </main>
+
+  <footer>
+    <hr />
+    <p>&copy; 2025 Black Hat Inc. | This is a simulated message.</p>
+  </footer>
+</body>
+</html>
