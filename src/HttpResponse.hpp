@@ -21,11 +21,13 @@ namespace HttpStatus {
     const std::string UNAUTHORIZED {"401 Unauthorized"};
     const std::string FORBIDDEN {"403 Forbidden"};
     const std::string NOT_FOUND {"404 Not Found"};
+    const std::string METHOD_NOT_ALLOWED {"405 Method Not Allowed"};
 
     const std::string INTERNAL_SERVER_ERROR {"500 Internal Server Error"};
     const std::string BAD_GATEWAY {"502 Bad Gateway"};
     const std::string SERVICE_UNAVAILABLE {"503 Service Unavailable"};
-    const std::string GATEWAY_TIMEOUT {"Gateway Timeout"};
+    const std::string GATEWAY_TIMEOUT {"504 Gateway Timeout"};
+    const std::string HTTP_VERSION_NOT_SUPPORTED {"505 HTTP Version Not Supported"};
 }
 
 struct HttpResponse {
@@ -62,5 +64,19 @@ struct HttpResponse {
         http_response.body = body;
         http_response.set_header("Content-Length", std::to_string(body.size()));
         return http_response;
+    }
+
+    static HttpResponse build_error(const std::string& status, const std::string& message="") {
+        std::string html =  "<!DOCTYPE html>\n"
+                            "<html>\n"
+                            "<head><title>Error</title></head>\n"
+                            "<body style=\"background:#fee; color:#900; text-align:center; font-family:sans-serif; padding:50px;\">\n"
+                            "<h1>" + status + "</h1>\n"
+                            "<p>" + message + "</p>\n"
+                            "</body>\n"
+                            "</html>\n";
+        std::vector<uint8_t> buffer(html.begin(), html.end());
+        HttpResponse response = HttpResponse::build(status, "text/html", buffer);
+        response.headers["Content-Length"] = std::to_string(buffer.size());
     }
 };
