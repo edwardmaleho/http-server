@@ -27,9 +27,12 @@ public:
             return 0;
         }
     }
-    size_t read_exact(std::vector<uint8_t>& buffer, int size) {
+    size_t read_exact(std::vector<uint8_t>& buffer, int new_size) {
+        int initial_size = buffer.size();
+        buffer.resize(new_size);
+        int read_size = new_size-initial_size;
         try {
-            size_t len = boost::asio::read(socket, boost::asio::buffer(buffer, size));
+            size_t len = boost::asio::read(socket, boost::asio::buffer(buffer.data() + initial_size, read_size));
             return len;
         }
         catch (std::exception& e) {

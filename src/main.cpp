@@ -67,6 +67,14 @@ std::string extract_header(std::vector<uint8_t>& data) {
     return header;
 }
 
+void write_to_file(const std::string& filename, const std::vector<uint8_t>& data) {
+    std::ofstream file(filename, std::ios::binary);
+    if (!file) {
+        throw std::ios_base::failure("Failed to open file for writing: " + filename);
+    }
+    file.write(reinterpret_cast<const char*>(data.data()), data.size());
+}
+
 int main() {
     RequestHandler req_handler("/home/kgang.maleho/Develop/http-server/test/");
 
@@ -84,13 +92,7 @@ int main() {
     while (true) {
         acceptor.accept(socket);
         std::vector<uint8_t> resp(4080);
-        // size_t len = connection->socket_read(resp);
-        // std::string delim = "\r\n\r\n";
-        // auto it = std::search(resp.begin(), resp.end(), delim.begin(), delim.end());
-        // auto end = std::distance(resp.begin(), it) + delim.size();
-        // std::string header(resp.begin(), resp.begin() + end);
-        // std::string header = extract_header(resp);
-        
+
         std::string header;
         boost::asio::streambuf buf;
         connection->read_header(header, buf);
@@ -104,22 +106,14 @@ int main() {
         std::vector<uint8_t> body(boost::asio::buffers_begin(data), boost::asio::buffers_end(data));
         int first_size = body.size();
         int body_len = std::stoul(req.headers.at("Content-Length"));
-        body.resize(body_len);
-        connection->read_exact(body, body_len - first_size);
+
+        connection->read_exact(body, body_len);
+
+        // write_to_file("favico.ico", body);
+
         std::string bufstring (body.begin(), body.end());
         std::cout << bufstring << std::endl;
 
-        // body.insert(body.begin(), data.begin(), data.end());
-        // std::string bodystring(body.begin(), body.end());
-        // std::cout << bodystring << std::endl;
-        // connection->socket_read(body);
-
-        // std::vector<uint8_t> body;
-        // len = connection->socket_read(body);
-        // HttpRequest http_request;
-        // http_request.parse(resp);
-
-        // req_handler.process_request(http_request);
         socket.close();
     }
 
