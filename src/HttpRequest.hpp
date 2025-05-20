@@ -25,7 +25,7 @@ struct HttpRequest {
             auto pos = line.find(':');
             std::string key = line.substr(0, pos);
             std::string value = line.substr(pos + 1);
-            std::cout << key << " " << value << std::endl;
+            headers[key] = value;
         }
         return true;
     }

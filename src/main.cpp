@@ -3,6 +3,7 @@
 #include "HttpRequest.hpp"
 #include <iostream>
 #include "RequestHandler.hpp"
+#include "Connection.hpp"
 
 int tests() {
     // HttpResponse http_response = HttpResponse::build(HttpStatus::BAD_GATEWAY, "text/plain", "this is some information");
@@ -41,6 +42,30 @@ int tests() {
     return 0;
 }
 
+std::string extract_header(std::vector<uint8_t>& data) {
+    // Define the delimiter sequence to find
+    const std::string delimiter = "\r\n\r\n";
+
+    // Search for delimiter in data
+    auto it = std::search(data.begin(), data.end(),
+                          delimiter.begin(), delimiter.end());
+
+    if (it == data.end()) {
+        // Delimiter not found
+        return "";
+    }
+
+    // Calculate position after delimiter
+    size_t header_end_pos = std::distance(data.begin(), it) + delimiter.size();
+
+    // Extract header bytes into string
+    std::string header(data.begin(), data.begin() + header_end_pos);
+
+    // Remove extracted header bytes from original vector
+    data.erase(data.begin(), data.begin() + header_end_pos);
+
+    return header;
+}
 
 int main() {
     RequestHandler req_handler("/home/kgang.maleho/Develop/http-server/test/");
@@ -51,11 +76,52 @@ int main() {
     "Accept: */*\r\n"
     "Connection: close\r\n"
     "\r\n";
+    int port = 8080;
+    boost::asio::io_context io_context;
+    boost::asio::ip::tcp::acceptor acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port));
+    boost::asio::ip::tcp::socket socket(io_context);
+    std::shared_ptr<Connection> connection = std::make_shared<Connection>(socket);
+    while (true) {
+        acceptor.accept(socket);
+        std::vector<uint8_t> resp(4080);
+        // size_t len = connection->socket_read(resp);
+        // std::string delim = "\r\n\r\n";
+        // auto it = std::search(resp.begin(), resp.end(), delim.begin(), delim.end());
+        // auto end = std::distance(resp.begin(), it) + delim.size();
+        // std::string header(resp.begin(), resp.begin() + end);
+        // std::string header = extract_header(resp);
+        
+        std::string header;
+        boost::asio::streambuf buf;
+        connection->read_header(header, buf);
+        std::cout << "Header:" << std::endl;
+        std::cout << header << std::endl;
+        HttpRequest req;
+        req.parse(header);
 
-    HttpRequest http_request;
-    http_request.parse(request);
+        std::cout << "Body:" << std::endl;
+        auto data = buf.data();
+        std::vector<uint8_t> body(boost::asio::buffers_begin(data), boost::asio::buffers_end(data));
+        int first_size = body.size();
+        int body_len = std::stoul(req.headers.at("Content-Length"));
+        body.resize(body_len);
+        connection->read_exact(body, body_len - first_size);
+        std::string bufstring (body.begin(), body.end());
+        std::cout << bufstring << std::endl;
 
-    req_handler.process_request(http_request);
-    
+        // body.insert(body.begin(), data.begin(), data.end());
+        // std::string bodystring(body.begin(), body.end());
+        // std::cout << bodystring << std::endl;
+        // connection->socket_read(body);
+
+        // std::vector<uint8_t> body;
+        // len = connection->socket_read(body);
+        // HttpRequest http_request;
+        // http_request.parse(resp);
+
+        // req_handler.process_request(http_request);
+        socket.close();
+    }
+
     return 0; 
 }  

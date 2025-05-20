@@ -3,26 +3,59 @@
 #include <boost/asio.hpp>
 #include <iostream>
 
-using boost::asio::ip::tcp;
-
-size_t socket_read(tcp::socket& socket, std::vector<uint8_t>& buffer, boost::system::error_code& error) {
-    error.clear();
-    try {
-        size_t len = socket.read_some(boost::asio::buffer(buffer), error);
-        return len;
-    } 
-
-    catch (boost::system::error_code& e) {
-        std::cout << e.what() << std::endl;
+class Connection : public std::enable_shared_from_this<Connection> {
+public:
+    Connection(boost::asio::ip::tcp::socket& socket) : socket(socket) {
+        
     }
-}
-
-void socket_write(tcp::socket& socket, std::string message, boost::system::error_code& error) {
-    error.clear();
-    try {
-        boost::asio::write(socket, boost::asio::buffer(message), error);
-    } 
-    catch (std::exception& e) {
-        std::cout << e.what() << std::endl;
+    size_t read_header(std::string& header, boost::asio::streambuf& buf) {
+        try {
+            size_t header_len = boost::asio::read_until(socket, buf, "\r\n\r\n");
+            std::istream header_stream(&buf);
+            std::string header_string(header_len, '\0');
+            header_stream.read(&header_string[0], header_len);
+            header = header_string;
+      
+            // std::istream is(&buf);
+            // std::ostringstream oss;
+            // oss << is.rdbuf();
+            // buffer = oss.str();
+      
+            return header_len;
+        } catch (std::exception& e) {
+            std::cout << "Unable to read from socket: " << e.what() << std::endl;
+            return 0;
+        }
     }
-}
+    size_t read_exact(std::vector<uint8_t>& buffer, int size) {
+        try {
+            size_t len = boost::asio::read(socket, boost::asio::buffer(buffer, size));
+            return len;
+        }
+        catch (std::exception& e) {
+            std::cout << "Unable to read: " << e.what() << std::endl;
+            return 0;
+        }
+    }
+    size_t socket_read(std::vector<uint8_t>& buffer) {
+        try {
+            size_t len = socket.read_some(boost::asio::buffer(buffer));
+            return len;
+        } 
+        catch (std::exception& e) {
+            std::cout << "Unable to read from socket: " << e.what() << std::endl;
+            return 0;
+        }
+    }
+    void socket_write(const std::vector<uint8_t>& message) {
+        try {
+            boost::asio::write(socket, boost::asio::buffer(message));
+        } 
+        catch (std::exception& e) {
+            std::cout << "Unable to write to socket: " << e.what() << std::endl;
+        }
+    }
+private:
+    boost::asio::ip::tcp::socket& socket;
+};
+
