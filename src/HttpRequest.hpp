@@ -8,6 +8,7 @@
 struct HttpRequest {
     std::string http_version, request_type, target_url;
     std::map<std::string, std::string> headers;
+    std::vector<uint8_t> body;
 
     bool parse(const std::string& raw_data)  {
         std::stringstream stream (raw_data);

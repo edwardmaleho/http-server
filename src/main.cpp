@@ -5,43 +5,6 @@
 #include "RequestHandler.hpp"
 #include "Connection.hpp"
 
-int tests() {
-    // HttpResponse http_response = HttpResponse::build(HttpStatus::BAD_GATEWAY, "text/plain", "this is some information");
-    // std::cout << http_response.to_string(); 
- 
-    // std::cout << get_date() << std::endl;
-    // std::vector<uint8_t> content;
-    // read_file_content("./testfile.txt", content);
-  
-    // std::cout.write(reinterpret_cast<const char*>(content.data()), content.size()) << std::endl;
-
-    // std::string file {"help.html"};
-    // std::cout << get_content_type(file) << std::endl; 
-
-    std::vector<uint8_t> data;
-    std::string file_name {"favico.ico"};
-    if (!read_file_content(file_name, data)) {
-        std::cout << "Failed to read file" << file_name << std::endl;
-        return 1;
-    }
-    
-    HttpResponse http_response = HttpResponse::build(HttpStatus::OK, get_content_type(file_name), data); 
-    std::cout << http_response.to_string() << std::endl;
-
-    std::string request = "GET /index.html HTTP/1.1\r\n"
-    "Host: /index.html\r\n"
-    "User-Agent: MyClient/1.0\r\n"
-    "Accept: */*\r\n"
-    "Connection: close\r\n"
-    "\r\n";
-
-    HttpRequest http_request;
-    http_request.parse(request);
-
-    std::cout << http_request.http_version << http_request.request_type << http_request.target_url << std::endl;
-    return 0;
-}
-
 std::string extract_header(std::vector<uint8_t>& data) {
     // Define the delimiter sequence to find
     const std::string delimiter = "\r\n\r\n";
@@ -67,23 +30,7 @@ std::string extract_header(std::vector<uint8_t>& data) {
     return header;
 }
 
-void write_to_file(const std::string& filename, const std::vector<uint8_t>& data) {
-    std::ofstream file(filename, std::ios::binary);
-    if (!file) {
-        throw std::ios_base::failure("Failed to open file for writing: " + filename);
-    }
-    file.write(reinterpret_cast<const char*>(data.data()), data.size());
-}
-
 int main() {
-    RequestHandler req_handler("/home/kgang.maleho/Develop/http-server/test/");
-
-    std::string request = "GET /index.html HTTP/1.1\r\n"
-    "Host: /index.html\r\n"
-    "User-Agent: MyClient/1.0\r\n"
-    "Accept: */*\r\n"
-    "Connection: close\r\n"
-    "\r\n";
     int port = 8080;
     boost::asio::io_context io_context;
     boost::asio::ip::tcp::acceptor acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port));
@@ -101,17 +48,18 @@ int main() {
         HttpRequest req;
         req.parse(header);
 
-        std::cout << "Body:" << std::endl;
-        // auto data = buf.data();
-        // std::vector<uint8_t> body(boost::asio::buffers_begin(data), boost::asio::buffers_end(data));
-        std::vector<uint8_t> body; //= connection->extract_remaining();
-        int body_len = std::stoul(req.headers.at("Content-Length"));
-        connection->read_exact(body, body_len);
+        if (req.headers.count("Content-Length")) {
+            std::vector<uint8_t> body;
+            int body_len = std::stoul(req.headers.at("Content-Length"));
+            connection->read_exact(body, body_len);
+            req.body = body;
+        }
+ 
+        RequestHandler handler("www");
 
-        // write_to_file("favico.ico", body);
+        HttpResponse response = handler.process_request(req);
 
-        std::string bufstring (body.begin(), body.end());
-        std::cout << bufstring << std::endl;
+        connection->socket_write(response.to_bytes());
 
         socket.close();
     }
