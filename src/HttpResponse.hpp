@@ -78,5 +78,6 @@ struct HttpResponse {
         std::vector<uint8_t> buffer(html.begin(), html.end());
         HttpResponse response = HttpResponse::build(status, "text/html", buffer);
         response.headers["Content-Length"] = std::to_string(buffer.size());
+        return response;
     }
 };

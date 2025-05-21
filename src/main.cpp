@@ -95,18 +95,17 @@ int main() {
 
         std::string header;
         boost::asio::streambuf buf;
-        connection->read_header(header, buf);
+        connection->read_header(header);
         std::cout << "Header:" << std::endl;
         std::cout << header << std::endl;
         HttpRequest req;
         req.parse(header);
 
         std::cout << "Body:" << std::endl;
-        auto data = buf.data();
-        std::vector<uint8_t> body(boost::asio::buffers_begin(data), boost::asio::buffers_end(data));
-        int first_size = body.size();
+        // auto data = buf.data();
+        // std::vector<uint8_t> body(boost::asio::buffers_begin(data), boost::asio::buffers_end(data));
+        std::vector<uint8_t> body; //= connection->extract_remaining();
         int body_len = std::stoul(req.headers.at("Content-Length"));
-
         connection->read_exact(body, body_len);
 
         // write_to_file("favico.ico", body);

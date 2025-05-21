@@ -8,7 +8,11 @@ public:
     Connection(boost::asio::ip::tcp::socket& socket) : socket(socket) {
         
     }
-    size_t read_header(std::string& header, boost::asio::streambuf& buf) {
+    std::vector<uint8_t> extract_remaining() {
+        auto data = buf.data();
+        return std::vector<uint8_t>(boost::asio::buffers_begin(data), boost::asio::buffers_end(data));
+    }
+    size_t read_header(std::string& header) {
         try {
             size_t header_len = boost::asio::read_until(socket, buf, "\r\n\r\n");
             std::istream header_stream(&buf);
@@ -28,6 +32,7 @@ public:
         }
     }
     size_t read_exact(std::vector<uint8_t>& buffer, int new_size) {
+        buffer = extract_remaining();
         int initial_size = buffer.size();
         buffer.resize(new_size);
         int read_size = new_size-initial_size;
@@ -60,5 +65,6 @@ public:
     }
 private:
     boost::asio::ip::tcp::socket& socket;
+    boost::asio::streambuf buf;
 };
 
