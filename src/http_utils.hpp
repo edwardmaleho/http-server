@@ -38,6 +38,21 @@ std::string get_content_type(const std::string& file_name) {
     return "text/plain";
 }
 
+void write_to_file(const std::string& filename, const std::vector<uint8_t>& data) {
+    std::ofstream file(filename, std::ios::binary);
+    if (!file) {
+        throw std::ios_base::failure("Failed to open file for writing: " + filename);
+    }
+    file.write(reinterpret_cast<const char*>(data.data()), data.size());
+}
+
+std::string convert_to_string(std::vector<uint8_t>& data) {
+    return std::string(data.begin(), data.end());
+}
+std::vector<uint8_t> convert_to_vector(const std::string& str) {
+    return std::vector<uint8_t>(str.begin(), str.end());
+}
+
 bool read_file_content(const std::string& file_path, std::vector<uint8_t>& content) {
     std::ifstream file(file_path, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {

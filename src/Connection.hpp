@@ -3,73 +3,68 @@
 #include <boost/asio.hpp>
 #include <iostream>
 
-using boost::asio::ip::tcp;
-
-size_t socket_read(tcp::socket& socket, std::vector<uint8_t>& buffer, boost::system::error_code& error) {
-    error.clear();
-    try {
-        size_t len = socket.read_some(boost::asio::buffer(buffer), error);
-        return len;
-    } 
-
-    catch (boost::system::error_code& e) {
-        std::cout << e.what() << std::endl;
+class Connection : public std::enable_shared_from_this<Connection> {
+public:
+    Connection(boost::asio::ip::tcp::socket& socket) : socket(socket) {
+        
     }
-}
-
-void socket_write(tcp::socket& socket, std::string message, boost::system::error_code& error) {
-    error.clear();
-    try {
-        boost::asio::write(socket, boost::asio::buffer(message), error);
-    } 
-    catch (std::exception& e) {
-        std::cout << e.what() << std::endl;
+    std::vector<uint8_t> extract_remaining() {
+        auto data = buf.data();
+        return std::vector<uint8_t>(boost::asio::buffers_begin(data), boost::asio::buffers_end(data));
     }
-}
-
-
-// --- Socket I/O Wrappers (could be part of a Connection class) ---
-/**
- * @brief Reads data from the socket.
- * @param socket The TCP socket.
- * @param buffer The buffer to store read data.
- * @param error Output error code.
- * @return Number of bytes read.
- */
-size_t socket_read(boost::asio::ip::tcp::socket& socket, boost::asio::mutable_buffer buffer, boost::system::error_code& error) {
-    error.clear(); // Clear error code before operation
-    size_t length = 0;
-    try {
-        length = socket.read_some(buffer, error);
-    } catch (const std::exception& e) {
-        std::cerr << "Exception during socket read: " << e.what() << std::endl;
-        // If ASIO didn't set an error but an exception occurred,
-        // we might want to set a generic error or rethrow.
-        if (!error) {
-            // This is a bit tricky. If read_some throws, error might not be set.
-            // For now, we rely on the `error` parameter set by read_some itself.
-            // If an exception is thrown by ASIO that isn't a system_error, `error` might not be informative.
-        }
-        return 0; // Indicate failure or no bytes read
-    }
-    return length;
-}
-
-/**
- * @brief Writes data to the socket.
- * @param socket The TCP socket.
- * @param message The string message to write.
- * @param error Output error code.
- */
-void socket_write(boost::asio::ip::tcp::socket& socket, const std::string& message, boost::system::error_code& error) {
-    error.clear(); // Clear error code before operation
-    try {
-        boost::asio::write(socket, boost::asio::buffer(message), error);
-    } catch (const std::exception& e) {
-        std::cerr << "Exception during socket write: " << e.what() << std::endl;
-        if (!error) {
-            // Similar to read, ensure error reflects the failure if possible.
+    size_t read_header(std::string& header) {
+        try {
+            size_t header_len = boost::asio::read_until(socket, buf, "\r\n\r\n");
+            std::istream header_stream(&buf);
+            std::string header_string(header_len, '\0');
+            header_stream.read(&header_string[0], header_len);
+            header = header_string;
+      
+            // std::istream is(&buf);
+            // std::ostringstream oss;
+            // oss << is.rdbuf();
+            // buffer = oss.str();
+      
+            return header_len;
+        } catch (std::exception& e) {
+            std::cout << "Unable to read from socket: " << e.what() << std::endl;
+            return 0;
         }
     }
-}
+    size_t read_exact(std::vector<uint8_t>& buffer, int new_size) {
+        buffer = extract_remaining();
+        int initial_size = buffer.size();
+        buffer.resize(new_size);
+        int read_size = new_size-initial_size;
+        try {
+            size_t len = boost::asio::read(socket, boost::asio::buffer(buffer.data() + initial_size, read_size));
+            return len;
+        }
+        catch (std::exception& e) {
+            std::cout << "Unable to read: " << e.what() << std::endl;
+            return 0;
+        }
+    }
+    size_t socket_read(std::vector<uint8_t>& buffer) {
+        try {
+            size_t len = socket.read_some(boost::asio::buffer(buffer));
+            return len;
+        } 
+        catch (std::exception& e) {
+            std::cout << "Unable to read from socket: " << e.what() << std::endl;
+            return 0;
+        }
+    }
+    void socket_write(const std::vector<uint8_t>& message) {
+        try {
+            boost::asio::write(socket, boost::asio::buffer(message));
+        } 
+        catch (std::exception& e) {
+            std::cout << "Unable to write to socket: " << e.what() << std::endl;
+        }
+    }
+private:
+    boost::asio::ip::tcp::socket& socket;
+    boost::asio::streambuf buf;
+};
 

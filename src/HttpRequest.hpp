@@ -8,6 +8,7 @@
 struct HttpRequest {
     std::string http_version, request_type, target_url;
     std::map<std::string, std::string> headers;
+    std::vector<uint8_t> body;
 
     bool parse(const std::string& raw_data)  {
         std::stringstream stream (raw_data);
@@ -25,7 +26,7 @@ struct HttpRequest {
             auto pos = line.find(':');
             std::string key = line.substr(0, pos);
             std::string value = line.substr(pos + 1);
-            std::cout << key << " " << value << std::endl;
+            headers[key] = value;
         }
         return true;
     }

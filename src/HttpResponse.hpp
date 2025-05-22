@@ -46,15 +46,19 @@ struct HttpResponse {
         set_header("Connection", "keep-alive");
     }
 
-    std::string to_string() {
+    std::vector<uint8_t> to_bytes() {
         std::stringstream stream;
         stream << http_version << " " << status_message << "\r\n";
         for (const auto& header : headers) {
             stream << header.first << ": " << header.second << "\r\n";
         }
         stream << "\r\n";
-        stream << reinterpret_cast<const char*>(body.data()) << "\r\n";
-        return stream.str();
+        std::vector<uint8_t> data = convert_to_vector(stream.str());
+        data.insert(data.end(), body.begin(), body.end());
+        data.push_back('\r');
+        data.push_back('\n');
+        // stream << reinterpret_cast<const char*>(body.data()) << "\r\n";
+        return data;
     }
 
     static HttpResponse build(const std::string& status, const std::string& content_type, const std::vector<uint8_t>& body) {
@@ -78,5 +82,6 @@ struct HttpResponse {
         std::vector<uint8_t> buffer(html.begin(), html.end());
         HttpResponse response = HttpResponse::build(status, "text/html", buffer);
         response.headers["Content-Length"] = std::to_string(buffer.size());
+        return response;
     }
 };
