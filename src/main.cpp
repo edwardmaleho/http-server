@@ -38,10 +38,10 @@ int main() {
     std::shared_ptr<Connection> connection = std::make_shared<Connection>(socket);
     while (true) {
         acceptor.accept(socket);
-        std::vector<uint8_t> resp(4080);
+        RequestHandler handler("MyServer/1.0", "www");
 
         std::string header;
-        boost::asio::streambuf buf;
+
         connection->read_header(header);
         std::cout << "Header:" << std::endl;
         std::cout << header << std::endl;
@@ -55,8 +55,6 @@ int main() {
             req.body = body;
         }
  
-        RequestHandler handler("www");
-
         HttpResponse response = handler.process_request(req);
 
         connection->socket_write(response.to_bytes());

@@ -1,5 +1,8 @@
 sources = files(
-    'main.cpp'
+    'main.cpp',
+    'Connection.cpp',
+    'http_utils.cpp',
+    'RequestHandler.cpp'
 )
 
-executable('main', sources)
+executable('http-server', sources)
