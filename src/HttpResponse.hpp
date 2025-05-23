@@ -6,8 +6,6 @@
 #include <iostream>
 #include "http_utils.hpp"
 
-std::string SERVER_NAME {"My Server"};
-
 namespace HttpStatus {
     const std::string OK {"200 OK"};
     const std::string CREATED {"201 Created"};
@@ -35,14 +33,15 @@ struct HttpResponse {
     std::string status_message;
     std::map<std::string, std::string> headers;
     std::vector<uint8_t> body;
+    std::string server_name;
 
     void set_header(const std::string& name, const std::string& value) {
         headers[name] = value;
     }
 
-    HttpResponse() {
-        set_header("Server", SERVER_NAME);
-        set_header("Date", get_date()); 
+    HttpResponse(const std::string& server_name) : server_name(server_name) {
+        set_header("Server", server_name);
+        set_header("Date", Utils::get_date()); 
         set_header("Connection", "keep-alive");
     }
 
@@ -53,16 +52,15 @@ struct HttpResponse {
             stream << header.first << ": " << header.second << "\r\n";
         }
         stream << "\r\n";
-        std::vector<uint8_t> data = convert_to_vector(stream.str());
+        std::vector<uint8_t> data = Utils::convert_to_vector(stream.str());
         data.insert(data.end(), body.begin(), body.end());
         data.push_back('\r');
         data.push_back('\n');
-        // stream << reinterpret_cast<const char*>(body.data()) << "\r\n";
         return data;
     }
 
-    static HttpResponse build(const std::string& status, const std::string& content_type, const std::vector<uint8_t>& body) {
-        HttpResponse http_response;
+    static HttpResponse build(const std::string& server_name, const std::string& status, const std::string& content_type, const std::vector<uint8_t>& body) {
+        HttpResponse http_response(server_name);
         http_response.status_message = status;
         http_response.set_header("Content-Type", content_type);
         http_response.body = body;
@@ -70,7 +68,7 @@ struct HttpResponse {
         return http_response;
     }
 
-    static HttpResponse build_error(const std::string& status, const std::string& message="") {
+    static HttpResponse build_error(const std::string& server_name, const std::string& status, const std::string& message="") {
         std::string html =  "<!DOCTYPE html>\n"
                             "<html>\n"
                             "<head><title>Error</title></head>\n"
@@ -80,7 +78,7 @@ struct HttpResponse {
                             "</body>\n"
                             "</html>\n";
         std::vector<uint8_t> buffer(html.begin(), html.end());
-        HttpResponse response = HttpResponse::build(status, "text/html", buffer);
+        HttpResponse response = HttpResponse::build(server_name, status, "text/html", buffer);
         response.headers["Content-Length"] = std::to_string(buffer.size());
         return response;
     }

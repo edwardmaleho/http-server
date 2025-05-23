@@ -5,31 +5,6 @@
 #include "RequestHandler.hpp"
 #include "Connection.hpp"
 
-std::string extract_header(std::vector<uint8_t>& data) {
-    // Define the delimiter sequence to find
-    const std::string delimiter = "\r\n\r\n";
-
-    // Search for delimiter in data
-    auto it = std::search(data.begin(), data.end(),
-                          delimiter.begin(), delimiter.end());
-
-    if (it == data.end()) {
-        // Delimiter not found
-        return "";
-    }
-
-    // Calculate position after delimiter
-    size_t header_end_pos = std::distance(data.begin(), it) + delimiter.size();
-
-    // Extract header bytes into string
-    std::string header(data.begin(), data.begin() + header_end_pos);
-
-    // Remove extracted header bytes from original vector
-    data.erase(data.begin(), data.begin() + header_end_pos);
-
-    return header;
-}
-
 int main() {
     int port = 8080;
     boost::asio::io_context io_context;
@@ -38,10 +13,10 @@ int main() {
     std::shared_ptr<Connection> connection = std::make_shared<Connection>(socket);
     while (true) {
         acceptor.accept(socket);
-        std::vector<uint8_t> resp(4080);
+        RequestHandler handler("MyServer/1.0", "www");
 
         std::string header;
-        boost::asio::streambuf buf;
+
         connection->read_header(header);
         std::cout << "Header:" << std::endl;
         std::cout << header << std::endl;
@@ -55,8 +30,6 @@ int main() {
             req.body = body;
         }
  
-        RequestHandler handler("www");
-
         HttpResponse response = handler.process_request(req);
 
         connection->socket_write(response.to_bytes());
