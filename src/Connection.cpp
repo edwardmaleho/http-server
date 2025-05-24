@@ -3,50 +3,90 @@
 std::vector<uint8_t> Connection::extract_remaining() {
     auto data = buf.data();
     return std::vector<uint8_t>(boost::asio::buffers_begin(data), boost::asio::buffers_end(data));
+    
 }
-size_t Connection::read_header(std::string& header) {
-    try {
-        size_t header_len = boost::asio::read_until(socket, buf, "\r\n\r\n");
-        std::istream header_stream(&buf);
+
+void Connection::async_read_until(std::function<void(const boost::system::error_code&, std::string)> handler) {
+    auto self = shared_from_this();
+    std::cout << "starting read\n";
+   if (!socket || !socket->is_open()) {
+        handler(boost::asio::error::not_connected, "");
+        return;
+    }
+    boost::asio::async_read_until(*socket, buf, "\r\n\r\n", 
+    [self, handler](const boost::system::error_code& ec, size_t header_len) {
+        std::cout << "Inside handler\n";
+        if (ec) {
+            std::cout << "Unable to read from socket: " << ec.message() << std::endl;
+            handler(ec, "");
+            return; 
+        }
+
+        std::istream header_stream(&self->buf);
         std::string header_string(header_len, '\0');
         header_stream.read(&header_string[0], header_len);
-        header = header_string;
-  
-        return header_len;
-    } catch (std::exception& e) {
-        std::cout << "Unable to read from socket: " << e.what() << std::endl;
-        return 0;
-    }
+
+        self->buf.consume(header_len);
+
+        handler(ec, header_string);
+    });
 }
-size_t Connection::read_exact(std::vector<uint8_t>& buffer, int new_size) {
-    buffer = extract_remaining();
-    int initial_size = buffer.size();
+
+void Connection::async_read_exactly(int new_size, std::function<void(const boost::system::error_code&, std::vector<uint8_t>)> handler) {
+    auto self = shared_from_this();
+    std::vector<uint8_t> buffer = self->extract_remaining();
+    std::size_t initial_size = buffer.size();
     buffer.resize(new_size);
-    int read_size = new_size-initial_size;
-    try {
-        size_t len = boost::asio::read(socket, boost::asio::buffer(buffer.data() + initial_size, read_size));
-        return len;
+
+    std::size_t read_size = new_size - initial_size;
+    
+    if (read_size == 0) {
+        handler({}, buffer);
+        return;
     }
-    catch (std::exception& e) {
-        std::cout << "Unable to read: " << e.what() << std::endl;
-        return 0;
-    }
+
+    auto temp_buf = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
+    
+    boost::asio::async_read(*socket, boost::asio::buffer(temp_buf->data() + initial_size, read_size), 
+        [self, temp_buf, handler, read_size](const boost::system::error_code& ec, size_t bytes_transferred) mutable {
+            if (ec) {
+                std::cout << "Unable to read: " << ec.message() << std::endl;
+                handler(ec, {});
+                return;
+            }
+
+            self->buf.consume(read_size);
+
+            handler(ec, std::move(*temp_buf));
+        }
+    );
 }
-size_t Connection::socket_read(std::vector<uint8_t>& buffer) {
-    try {
-        size_t len = socket.read_some(boost::asio::buffer(buffer));
-        return len;
-    } 
-    catch (std::exception& e) {
-        std::cout << "Unable to read from socket: " << e.what() << std::endl;
-        return 0;
-    }
+
+void Connection::async_write(const std::vector<uint8_t>& data, std::function<void(const boost::system::error_code&, size_t)> handler) {
+    auto self = shared_from_this();
+    boost::asio::async_write(*socket, boost::asio::buffer(data), 
+        [self, handler](const boost::system::error_code& ec, size_t bytes_transferred) {
+            handler(ec, bytes_transferred);
+    });
 }
-void Connection::socket_write(const std::vector<uint8_t>& message) {
-    try {
-        boost::asio::write(socket, boost::asio::buffer(message));
-    } 
-    catch (std::exception& e) {
-        std::cout << "Unable to write to socket: " << e.what() << std::endl;
+
+
+bool Connection::is_open() {
+    if (socket->is_open()) {
+        return true;
+    }
+    return false;
+}
+
+void Connection::close() {
+    boost::system::error_code ec;
+
+    if (socket->is_open()) {
+        socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        socket->close(ec);
+    }
+
+    if (ec) {
+        std::cerr << "Error closing socket: " << ec.message() << std::endl;
     }
 }

@@ -5,16 +5,22 @@
 
 class Connection : public std::enable_shared_from_this<Connection> {
 public:
-    Connection(boost::asio::ip::tcp::socket& socket) : socket(socket) {
+    Connection(std::shared_ptr<boost::asio::ip::tcp::socket> socket) : socket(socket) {
         
     }
     std::vector<uint8_t> extract_remaining();
-    size_t read_header(std::string& header);
-    size_t read_exact(std::vector<uint8_t>& buffer, int new_size);
-    size_t socket_read(std::vector<uint8_t>& buffer);
-    void socket_write(const std::vector<uint8_t>& message);
+
+    void async_read_until(std::function<void(const boost::system::error_code&, std::string)> handler);
+    void async_read_exactly(int new_size, std::function<void(const boost::system::error_code&, std::vector<uint8_t>)> handler);
+
+    void async_write(const std::vector<uint8_t>& data, std::function<void(const boost::system::error_code&, size_t bytes_transferred)> handler);
+
+    bool is_open();
+
+    void close();
+
 private:
-    boost::asio::ip::tcp::socket& socket;
+    std::shared_ptr<boost::asio::ip::tcp::socket> socket;
     boost::asio::streambuf buf;
 };
 

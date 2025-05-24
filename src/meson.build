@@ -1,3 +1,5 @@
+boost_dep = dependency('boost', modules: ['system'], required: true)
+
 sources = files(
     'main.cpp',
     'Connection.cpp',
