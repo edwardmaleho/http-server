@@ -8,14 +8,12 @@ std::vector<uint8_t> Connection::extract_remaining() {
 
 void Connection::async_read_until(std::function<void(const boost::system::error_code&, std::string)> handler) {
     auto self = shared_from_this();
-    std::cout << "starting read\n";
    if (!socket || !socket->is_open()) {
         handler(boost::asio::error::not_connected, "");
         return;
     }
     boost::asio::async_read_until(*socket, buf, "\r\n\r\n", 
     [self, handler](const boost::system::error_code& ec, size_t header_len) {
-        std::cout << "Inside handler\n";
         if (ec) {
             handler(ec, "");
             self->close();
@@ -73,14 +71,12 @@ void Connection::async_write(const std::vector<uint8_t>& data, std::function<voi
 void Connection::write_response_and_continue(HttpResponse response) {
     auto self = shared_from_this();
     self->async_write(response.to_bytes(), [self](const boost::system::error_code& ec, size_t) {
-        std::cout << "Write completed" << std::endl;
         if (ec) {
             self->close();
             return;
         }
         if (self->is_open()) {
             if (self) {
-                std::cout << "Starting with connection id: " << std::to_string(self->conn_id) << std::endl;
                 self->session_loop();
             }
             else {

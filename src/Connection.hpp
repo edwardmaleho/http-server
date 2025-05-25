@@ -8,7 +8,7 @@
 
 class Connection : public std::enable_shared_from_this<Connection> {
 public:
-    Connection(std::shared_ptr<boost::asio::ip::tcp::socket> socket, int conn_id) : socket(socket), handler("MyServer/1.0", "www"), conn_id(conn_id) { }
+    Connection(std::shared_ptr<boost::asio::ip::tcp::socket> socket) : socket(socket), handler("MyServer/1.0", "www") { }
     std::vector<uint8_t> extract_remaining();
 
     void async_read_until(std::function<void(const boost::system::error_code&, std::string)> handler);
@@ -27,6 +27,5 @@ private:
     std::shared_ptr<boost::asio::ip::tcp::socket> socket;
     boost::asio::streambuf buf;
     RequestHandler handler;
-    int conn_id;
 };
 
