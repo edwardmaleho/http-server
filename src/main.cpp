@@ -5,37 +5,29 @@
 #include "RequestHandler.hpp"
 #include "Connection.hpp"
 
+void async_accept_loop(boost::asio::io_context& io_context, boost::asio::ip::tcp::acceptor& acceptor, int& conn_id) {
+    auto socket = std::make_shared<boost::asio::ip::tcp::socket>(io_context);
+    auto handler = std::make_shared<RequestHandler>("MyServer/1.0", "www");
+
+    acceptor.async_accept(*socket, [socket, &acceptor, &io_context, handler, &conn_id](const boost::system::error_code& ec) {
+        if (!ec) {
+            auto connection = std::make_shared<Connection>(socket, conn_id);
+            connection->session_loop();
+        };
+        conn_id++;
+        async_accept_loop(io_context, acceptor, conn_id);
+    });
+}
+
 int main() {
-    int port = 8080;
+    int port = 8081;
+    int conn_id = 0;
     boost::asio::io_context io_context;
     boost::asio::ip::tcp::acceptor acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port));
-    boost::asio::ip::tcp::socket socket(io_context);
-    std::shared_ptr<Connection> connection = std::make_shared<Connection>(socket);
-    while (true) {
-        acceptor.accept(socket);
-        RequestHandler handler("MyServer/1.0", "www");
 
-        std::string header;
+    async_accept_loop(io_context, acceptor, conn_id);
 
-        connection->read_header(header);
-        std::cout << "Header:" << std::endl;
-        std::cout << header << std::endl;
-        HttpRequest req;
-        req.parse(header);
-
-        if (req.headers.count("Content-Length")) {
-            std::vector<uint8_t> body;
-            int body_len = std::stoul(req.headers.at("Content-Length"));
-            connection->read_exact(body, body_len);
-            req.body = body;
-        }
- 
-        HttpResponse response = handler.process_request(req);
-
-        connection->socket_write(response.to_bytes());
-
-        socket.close();
-    }
+    io_context.run();
 
     return 0; 
 }  

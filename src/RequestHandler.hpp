@@ -24,7 +24,7 @@ private:
     HttpResponse handle_post_request(const HttpRequest& request);
 
 public:
-    RequestHandler(const std::string& server_name, const std::string& doc_root) : server_name(server_name), document_root(doc_root) {}
+    RequestHandler(const std::string& server_name, const std::string& doc_root) :  document_root(doc_root), server_name(server_name){}
     HttpResponse process_request(HttpRequest& request);
 
 };
