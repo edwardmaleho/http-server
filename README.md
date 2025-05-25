@@ -1,5 +1,5 @@
 # http-server
-Simple Http server written in C++
+An Asynchronous HTTP server that makes use of Boost::asio libraries and written in C++.
 
 ## Goal
 
