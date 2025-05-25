@@ -30,6 +30,9 @@ namespace Routes {
 
 HttpResponse RequestHandler::handle_get_request(const HttpRequest& request) {
     std::string path = request.target_url;
+    if (path == "/") {
+        path = "/index.html";
+    }
     std::string full_path = document_root + path;
     if (Routes::get_routes.count(path)) {
         std::string body;
