@@ -6,20 +6,31 @@ std::vector<uint8_t> Session::extract_remaining() {
     
 }
 
+void Session::start() {
+    auto self = shared_from_this();
+    ssl_stream.async_handshake(boost::asio::ssl::stream_base::server, [self] (const boost::system::error_code& ec) {
+        if (!ec) {
+            std::cout << "Handshake successful\n";
+            self->session_loop();    
+        }
+        else {
+            std::cout << "Handshake unsuccessful: " << ec.what() << std::endl;
+        }
+    });
+}
+
 void Session::async_read_until(std::function<void(const boost::system::error_code&, std::string)> handler) {
     auto self = shared_from_this();
-   if (!socket.is_open()) {
-        handler(boost::asio::error::not_connected, "");
-        return;
-    }
-    boost::asio::async_read_until(socket, buf, "\r\n\r\n", 
+    std::cout << "Starting read\n";
+    boost::asio::async_read_until(ssl_stream, buf, "\r\n\r\n", 
     [self, handler](const boost::system::error_code& ec, size_t header_len) {
         if (ec) {
             handler(ec, "");
+            std::cout << "Error: " << ec.what() << std::endl;
             self->close();
             return; 
         }
-
+        std::cout << "Reading header\n";
         std::istream header_stream(&self->buf);
         std::string header_string(header_len, '\0');
         header_stream.read(&header_string[0], header_len);
@@ -45,7 +56,9 @@ void Session::async_read_exactly(int new_size, std::function<void(const boost::s
 
     auto temp_buf = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
     
-    boost::asio::async_read(socket, boost::asio::buffer(temp_buf->data() + initial_size, read_size), 
+    std::cout << "Reading body\n";
+
+    boost::asio::async_read(ssl_stream, boost::asio::buffer(temp_buf->data() + initial_size, read_size), 
         [self, temp_buf, handler, read_size](const boost::system::error_code& ec, size_t bytes_transferred) mutable {
             if (ec) {
                 handler(ec, {});
@@ -62,7 +75,8 @@ void Session::async_read_exactly(int new_size, std::function<void(const boost::s
 
 void Session::async_write(const std::vector<uint8_t>& data, std::function<void(const boost::system::error_code&, size_t)> handler) {
     auto self = shared_from_this();
-    boost::asio::async_write(socket, boost::asio::buffer(data), 
+    std::cout << "Writing to socket\n";
+    boost::asio::async_write(ssl_stream, boost::asio::buffer(data), 
         [self, handler](const boost::system::error_code& ec, size_t bytes_transferred) {
             handler(ec, bytes_transferred);
     });
@@ -75,13 +89,11 @@ void Session::write_response_and_continue(HttpResponse response) {
             self->close();
             return;
         }
-        if (self->is_open()) {
-            if (self) {
-                self->session_loop();
-            }
-            else {
-                std::cout << "Session loop is empty";
-            }
+        if (self) {
+            self->session_loop();
+        }
+        else {
+            std::cout << "Session loop is empty";
         }
     });
 };
@@ -122,26 +134,6 @@ void Session::session_loop() {
     });
 };
 
-boost::asio::ip::tcp::socket& Session::get_socket() {
-    return socket;
-}
-
-bool Session::is_open() {
-    if (socket.is_open()) {
-        return true;
-    }
-    return false;
-}
-
 void Session::close() {
-    boost::system::error_code ec;
-
-    if (socket.is_open()) {
-        socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-        socket.close(ec);
-    }
-
-    if (ec) {
-        std::cerr << "Error closing socket: " << ec.message() << std::endl;
-    }
+    ssl_stream.shutdown();
 }
