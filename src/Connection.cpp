@@ -8,11 +8,11 @@ std::vector<uint8_t> Connection::extract_remaining() {
 
 void Connection::async_read_until(std::function<void(const boost::system::error_code&, std::string)> handler) {
     auto self = shared_from_this();
-   if (!socket || !socket->is_open()) {
+   if (!socket.is_open()) {
         handler(boost::asio::error::not_connected, "");
         return;
     }
-    boost::asio::async_read_until(*socket, buf, "\r\n\r\n", 
+    boost::asio::async_read_until(socket, buf, "\r\n\r\n", 
     [self, handler](const boost::system::error_code& ec, size_t header_len) {
         if (ec) {
             handler(ec, "");
@@ -45,7 +45,7 @@ void Connection::async_read_exactly(int new_size, std::function<void(const boost
 
     auto temp_buf = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
     
-    boost::asio::async_read(*socket, boost::asio::buffer(temp_buf->data() + initial_size, read_size), 
+    boost::asio::async_read(socket, boost::asio::buffer(temp_buf->data() + initial_size, read_size), 
         [self, temp_buf, handler, read_size](const boost::system::error_code& ec, size_t bytes_transferred) mutable {
             if (ec) {
                 handler(ec, {});
@@ -62,7 +62,7 @@ void Connection::async_read_exactly(int new_size, std::function<void(const boost
 
 void Connection::async_write(const std::vector<uint8_t>& data, std::function<void(const boost::system::error_code&, size_t)> handler) {
     auto self = shared_from_this();
-    boost::asio::async_write(*socket, boost::asio::buffer(data), 
+    boost::asio::async_write(socket, boost::asio::buffer(data), 
         [self, handler](const boost::system::error_code& ec, size_t bytes_transferred) {
             handler(ec, bytes_transferred);
     });
@@ -122,8 +122,12 @@ void Connection::session_loop() {
     });
 };
 
+boost::asio::ip::tcp::socket& Connection::get_socket() {
+    return socket;
+}
+
 bool Connection::is_open() {
-    if (socket->is_open()) {
+    if (socket.is_open()) {
         return true;
     }
     return false;
@@ -132,9 +136,9 @@ bool Connection::is_open() {
 void Connection::close() {
     boost::system::error_code ec;
 
-    if (socket->is_open()) {
-        socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-        socket->close(ec);
+    if (socket.is_open()) {
+        socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        socket.close(ec);
     }
 
     if (ec) {
