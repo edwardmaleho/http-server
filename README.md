@@ -1,5 +1,5 @@
 # http-server (tls)
-An Asynchronous HTTP server that makes use of Boost.asio libraries and written in C++.
+A lightweight, asynchronous HTTP/1.1 server written in modern C++ using the Boost.Asio networking library. It supports basic HTTP request handling over TLS, making it suitable for applications requiring simple and efficient HTTPS communication.
 
 ## Features
 - Able to parse GET and POST requests for HTTP/1.1
