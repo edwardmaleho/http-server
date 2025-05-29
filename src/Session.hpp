@@ -2,14 +2,18 @@
 
 #include <boost/asio.hpp>
 #include <iostream>
+#include <boost/asio/ssl.hpp>
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
 #include "RequestHandler.hpp"
 
-class Connection : public std::enable_shared_from_this<Connection> {
+class Session : public std::enable_shared_from_this<Session> {
 public:
-    Connection(std::shared_ptr<boost::asio::ip::tcp::socket> socket) : socket(socket), handler("MyServer/1.0", "www") { }
+    Session(boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_stream) : ssl_stream(std::move(ssl_stream)), handler("MyServer/1.0", "www") { }
+
     std::vector<uint8_t> extract_remaining();
+
+    void start();
 
     void async_read_until(std::function<void(const boost::system::error_code&, std::string)> handler);
     void async_read_exactly(int new_size, std::function<void(const boost::system::error_code&, std::vector<uint8_t>)> handler);
@@ -20,11 +24,11 @@ public:
     void handle_header(std::string header);
     void session_loop();
     
-    bool is_open();
+    // bool is_open();
     void close();
 
 private:
-    std::shared_ptr<boost::asio::ip::tcp::socket> socket;
+    boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_stream;
     boost::asio::streambuf buf;
     RequestHandler handler;
 };

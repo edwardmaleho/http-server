@@ -1,25 +1,36 @@
-#include "Connection.hpp"
+#include "Session.hpp"
 
-std::vector<uint8_t> Connection::extract_remaining() {
+std::vector<uint8_t> Session::extract_remaining() {
     auto data = buf.data();
     return std::vector<uint8_t>(boost::asio::buffers_begin(data), boost::asio::buffers_end(data));
     
 }
 
-void Connection::async_read_until(std::function<void(const boost::system::error_code&, std::string)> handler) {
+void Session::start() {
     auto self = shared_from_this();
-   if (!socket || !socket->is_open()) {
-        handler(boost::asio::error::not_connected, "");
-        return;
-    }
-    boost::asio::async_read_until(*socket, buf, "\r\n\r\n", 
+    ssl_stream.async_handshake(boost::asio::ssl::stream_base::server, [self] (const boost::system::error_code& ec) {
+        if (!ec) {
+            std::cout << "Handshake successful\n";
+            self->session_loop();    
+        }
+        else {
+            std::cout << "Handshake unsuccessful: " << ec.what() << std::endl;
+        }
+    });
+}
+
+void Session::async_read_until(std::function<void(const boost::system::error_code&, std::string)> handler) {
+    auto self = shared_from_this();
+    std::cout << "Starting read\n";
+    boost::asio::async_read_until(ssl_stream, buf, "\r\n\r\n", 
     [self, handler](const boost::system::error_code& ec, size_t header_len) {
         if (ec) {
             handler(ec, "");
+            std::cout << "Error: " << ec.what() << std::endl;
             self->close();
             return; 
         }
-
+        std::cout << "Reading header\n";
         std::istream header_stream(&self->buf);
         std::string header_string(header_len, '\0');
         header_stream.read(&header_string[0], header_len);
@@ -30,7 +41,7 @@ void Connection::async_read_until(std::function<void(const boost::system::error_
     });
 }
 
-void Connection::async_read_exactly(int new_size, std::function<void(const boost::system::error_code&, std::vector<uint8_t>)> handler) {
+void Session::async_read_exactly(int new_size, std::function<void(const boost::system::error_code&, std::vector<uint8_t>)> handler) {
     auto self = shared_from_this();
     std::vector<uint8_t> buffer = self->extract_remaining();
     std::size_t initial_size = buffer.size();
@@ -45,7 +56,9 @@ void Connection::async_read_exactly(int new_size, std::function<void(const boost
 
     auto temp_buf = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
     
-    boost::asio::async_read(*socket, boost::asio::buffer(temp_buf->data() + initial_size, read_size), 
+    std::cout << "Reading body\n";
+
+    boost::asio::async_read(ssl_stream, boost::asio::buffer(temp_buf->data() + initial_size, read_size), 
         [self, temp_buf, handler, read_size](const boost::system::error_code& ec, size_t bytes_transferred) mutable {
             if (ec) {
                 handler(ec, {});
@@ -60,33 +73,32 @@ void Connection::async_read_exactly(int new_size, std::function<void(const boost
     );
 }
 
-void Connection::async_write(const std::vector<uint8_t>& data, std::function<void(const boost::system::error_code&, size_t)> handler) {
+void Session::async_write(const std::vector<uint8_t>& data, std::function<void(const boost::system::error_code&, size_t)> handler) {
     auto self = shared_from_this();
-    boost::asio::async_write(*socket, boost::asio::buffer(data), 
+    std::cout << "Writing to socket\n";
+    boost::asio::async_write(ssl_stream, boost::asio::buffer(data), 
         [self, handler](const boost::system::error_code& ec, size_t bytes_transferred) {
             handler(ec, bytes_transferred);
     });
 }
 
-void Connection::write_response_and_continue(HttpResponse response) {
+void Session::write_response_and_continue(HttpResponse response) {
     auto self = shared_from_this();
     self->async_write(response.to_bytes(), [self](const boost::system::error_code& ec, size_t) {
         if (ec) {
             self->close();
             return;
         }
-        if (self->is_open()) {
-            if (self) {
-                self->session_loop();
-            }
-            else {
-                std::cout << "Session loop is empty";
-            }
+        if (self) {
+            self->session_loop();
+        }
+        else {
+            std::cout << "Session loop is empty";
         }
     });
 };
 
-void Connection::handle_header(std::string header) {
+void Session::handle_header(std::string header) {
     auto self = shared_from_this();
     HttpRequest req;
     req.parse(header);
@@ -110,7 +122,7 @@ void Connection::handle_header(std::string header) {
     }
 };
 
-void Connection::session_loop() {
+void Session::session_loop() {
     auto self = shared_from_this();
     std::cout << "This is a loop\n";
     self->async_read_until([self](const boost::system::error_code& ec, std::string header) {
@@ -122,22 +134,6 @@ void Connection::session_loop() {
     });
 };
 
-bool Connection::is_open() {
-    if (socket->is_open()) {
-        return true;
-    }
-    return false;
-}
-
-void Connection::close() {
-    boost::system::error_code ec;
-
-    if (socket->is_open()) {
-        socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-        socket->close(ec);
-    }
-
-    if (ec) {
-        std::cerr << "Error closing socket: " << ec.message() << std::endl;
-    }
+void Session::close() {
+    ssl_stream.shutdown();
 }
