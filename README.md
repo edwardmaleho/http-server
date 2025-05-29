@@ -25,8 +25,8 @@ Use the provided script to generate the necessary TLS certificate and key:
 
 ```bash
 ./scripts/generate_certs.sh
-This will create the following files in the ./certs/ directory:
 ```
+This will create the following files in the ./certs/ directory:
 - server.crt – Self-signed TLS certificate
 - server.key – Private key
 - server.csr – Certificate signing request (optional for external CA)
